@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-핫딜 통합 뷰어 — 퀘이사존 · 루리웹 · 아카라이브 · 뽐뿌 핫딜 게시판을 한 페이지로.
+핫딜 통합 뷰어 — 퀘이사존 · 루리웹 · 아카라이브 · 뽐뿌 · 클리앙 핫딜 게시판을 한 페이지로.
 
 실행:  python hotdeal.py      (브라우저가 자동으로 열립니다: http://127.0.0.1:8765)
 필요:  pip install requests beautifulsoup4   (아나콘다에는 기본 포함)
@@ -300,11 +300,69 @@ def parse_ppomppu(html, now):
     return out
 
 
+
+def parse_clien(html, now):
+    """클리앙 알뜰구매 (clien.net/service/board/jirum)."""
+    soup = BeautifulSoup(html, "html.parser")
+    out = []
+    for row in soup.select(".list_item[data-board-sn]"):
+        cls = row.get("class", [])
+        if "notice" in cls or "hongbo" in cls:
+            continue
+        a = row.select_one("[data-role='list-title-text']") or row.select_one(".list_subject a")
+        if not a:
+            continue
+        rid = row["data-board-sn"]
+        title = clean(a.get_text())
+        shop = ""
+        sm = re.match(r"\[([^\]]{1,20})\]\s*", title)
+        if sm:
+            shop, title = sm.group(1), clean(title[sm.end():])
+        price, shipping = "", ""
+        pm = re.search(r"\(([\d,]+)\s*원?(?:\s*/\s*([^)]*))?\)\s*$", title)
+        if pm:
+            price, shipping = pm.group(1), clean(pm.group(2) or "")
+            title = clean(title[:pm.start()])
+        kw = row.select_one(".keyword a.icon_keyword, .keyword .icon_keyword")
+        ts_el = row.select_one(".list_time .timestamp")
+        dt = None
+        time_text = clean(row.select_one(".list_time .time").contents[0]) if row.select_one(".list_time .time") and row.select_one(".list_time .time").contents else ""
+        if ts_el:
+            try:
+                dt = datetime.strptime(clean(ts_el.get_text()), "%Y-%m-%d %H:%M:%S").replace(tzinfo=KST)
+            except ValueError:
+                dt = None
+        thumb = row.select_one(".list_thumbnail img")
+        thumb_src = thumb.get("src", "") if thumb else ""
+        votes = row.select_one(".list_votes") or row.select_one(".list_symph em")
+        hit = row.select_one(".list_hit .hit")
+        out.append({
+            "id": "cl-" + rid,
+            "site": "clien",
+            "title": title,
+            "url": "https://www.clien.net/service/board/jirum/" + rid,
+            "category": clean(kw.get_text()) if kw else "",
+            "shop": shop,
+            "price": price,
+            "shipping": shipping,
+            "thumb": thumb_src,
+            "comments": int(row.get("data-comment-count") or 0),
+            "likes": to_int(votes.get_text()) if votes else 0,
+            "views": clean(hit.get_text()) if hit else "",
+            "hot": False,
+            "ended": "sold_out" in cls or bool(ENDED_RE.search(title)),
+            "ts": dt.timestamp() if dt else 0,
+            "time_text": time_text,
+        })
+    return out
+
+
 SITES = {
     "quasarzone": {"name": "퀘이사존", "url": "https://quasarzone.com/bbs/qb_saleinfo", "parse": parse_quasarzone, "color": "#e11d48"},
     "ruliweb":    {"name": "루리웹",   "url": "https://bbs.ruliweb.com/market/board/1020", "parse": parse_ruliweb, "color": "#2563eb"},
     "arca":       {"name": "아카라이브", "url": "https://arca.live/b/hotdeal", "parse": parse_arca, "color": "#7c3aed"},
     "ppomppu":    {"name": "뽐뿌",     "url": "https://m.ppomppu.co.kr/new/bbs_list.php?id=ppomppu", "parse": parse_ppomppu, "color": "#059669"},
+    "clien":      {"name": "클리앙",   "url": "https://www.clien.net/service/board/jirum", "parse": parse_clien, "color": "#0891b2"},
 }
 
 _cache = {}          # site -> {"at": epoch, "items": [...], "error": str|None}
