@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>핫딜 통합</title>
-<meta name="description" content="퀘이사존 · 루리웹 · 아카라이브 핫딜을 한 곳에서">
+<meta name="robots" content="noindex, nofollow, noarchive">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔥</text></svg>">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <style>
@@ -89,7 +89,29 @@ main{padding:16px 0 60px}
 @keyframes sh{to{background-position:-200% 0}}
 .more{grid-column:1/-1;display:flex;justify-content:center;padding:10px 0}
 .more button{padding:10px 22px;border-radius:999px;border:1px solid var(--line);background:var(--card);cursor:pointer;font-weight:600}
+/* ---------- 목록 보기 ---------- */
+.grid.list{display:flex;flex-direction:column;gap:6px}
+.grid.list .card{flex-direction:row;align-items:stretch;border-radius:12px;box-shadow:none}
+.grid.list .card:hover{transform:none}
+.grid.list .thumb{width:84px;min-width:84px;aspect-ratio:auto;align-self:stretch}
+.grid.list .thumb .ph{font-size:0;gap:0}.grid.list .thumb .ph .big{font-size:24px}
+.grid.list .src{left:auto;right:6px;top:6px;padding:2px 6px;font-size:10px}
+.grid.list .new{left:6px;right:auto;top:6px;padding:2px 6px;font-size:10px}
+.grid.list .hot{right:6px;bottom:4px;font-size:14px}
+.grid.list .card.ended .thumb::after{font-size:13px}
+.grid.list .body{padding:9px 12px;gap:4px;min-width:0}
+.grid.list .title{font-size:14px;min-height:0;-webkit-line-clamp:2}
+.grid.list .price{gap:6px}.grid.list .price b{font-size:15px}
+.grid.list .tags{display:contents}.grid.list .tag{font-size:11px;padding:2px 6px}
+.grid.list .line{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.grid.list .meta{margin-top:2px;font-size:11.5px}
+.grid.list .more{grid-column:auto}
 @media(max-width:560px){
+  .grid.list .thumb{width:72px;min-width:72px}
+  .grid.list .body{padding:8px 10px}
+  .grid.list .title{font-size:13.5px}.grid.list .price b{font-size:14px}
+  .grid.list .tags{display:contents}
+
   .grid{grid-template-columns:1fr 1fr;gap:10px}
   .card{border-radius:12px}.body{padding:10px 11px 12px;gap:6px}
   .title{font-size:13.5px}.price b{font-size:16px}.tags{display:none}
@@ -106,6 +128,7 @@ main{padding:16px 0 60px}
       <div class="brand"><span class="flame">🔥</span>핫딜 통합</div>
       <span class="updated" id="updated"></span>
       <span class="spacer"></span>
+      <button class="ibtn" id="view" title="그리드/목록 전환"><svg id="vi-grid" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><svg id="vi-list" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
       <button class="ibtn" id="theme" title="테마 전환"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg></button>
       <button class="ibtn" id="markAll" title="모두 읽음 처리"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12l5 5L12 12"/><path d="M9 12l5 5L22 7"/></svg></button>
       <button class="ibtn" id="refresh" title="새로고침"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 3v6h-6"/></svg></button>
@@ -127,13 +150,17 @@ const $ = s => document.querySelector(s);
 const store = (k, v) => { try { if (v !== undefined) localStorage.setItem(k, JSON.stringify(v)); return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } };
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const SITE_ORDER = ['quasarzone', 'ruliweb', 'arca'];
-const PAGE = 48;
+const PAGE = 60;
 
 let data = { items: [], status: {}, generated: 0 };
 let seen = new Set(store('seen') || []);
 let enabled = new Set(store('enabled') || SITE_ORDER);
 let lastIds = null;      // 지난 방문 때 있던 글 id (NEW 판정용)
 let shown = PAGE;
+let view = store('view') || (matchMedia('(max-width:560px)').matches ? 'list' : 'grid');
+function applyView() { $('#grid').classList.toggle('list', view === 'list'); $('#vi-grid').style.display = view === 'list' ? '' : 'none'; $('#vi-list').style.display = view === 'list' ? 'none' : ''; }
+$('#view').onclick = () => { view = view === 'list' ? 'grid' : 'list'; store('view', view); applyView(); };
+applyView();
 
 /* 테마 */
 const applyTheme = t => { t ? document.documentElement.dataset.theme = t : delete document.documentElement.dataset.theme; };
@@ -170,8 +197,8 @@ function card(it) {
     <div class="thumb">${thumb}<span class="src">${esc(s.name)}</span>${isNew ? '<span class="new">NEW</span>' : ''}${it.hot ? '<span class="hot">🔥</span>' : ''}</div>
     <div class="body">
       <div class="title">${esc(it.title)}</div>
-      <div class="price">${price}</div>
-      <div class="tags">${it.shop ? `<span class="tag shop">${esc(it.shop)}</span>` : ''}${it.category && it.price ? `<span class="tag">${esc(it.category)}</span>` : ''}</div>
+      <div class="line"><div class="price">${price}</div>
+      <div class="tags">${it.shop ? `<span class="tag shop">${esc(it.shop)}</span>` : ''}${it.category && it.price ? `<span class="tag">${esc(it.category)}</span>` : ''}</div></div>
       <div class="meta">
         <span title="댓글"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1.1-4.4A8 8 0 1 1 21 12Z"/></svg>${it.comments}</span>
         <span title="추천"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 11v9H4v-9h3Zm3 9h7.5a2 2 0 0 0 2-1.6l1-5A2 2 0 0 0 18.5 11H14V6.5A2.5 2.5 0 0 0 11.5 4L10 11v9Z"/></svg>${it.likes}</span>
