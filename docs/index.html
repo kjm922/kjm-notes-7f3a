@@ -174,12 +174,13 @@ main{padding:16px 0 60px}
 const $ = s => document.querySelector(s);
 const store = (k, v) => { try { if (v !== undefined) localStorage.setItem(k, JSON.stringify(v)); return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } };
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const SITE_ORDER = ['quasarzone', 'ruliweb', 'arca'];
+const SITE_ORDER = ['quasarzone', 'ruliweb', 'arca', 'ppomppu'];
 const PAGE = 60;
 
 let data = { items: [], status: {}, generated: 0 };
 let seen = new Set(store('seen') || []);
 let enabled = new Set(store('enabled') || SITE_ORDER);
+{ const known = store('known') || []; SITE_ORDER.filter(k => !known.includes(k)).forEach(k => enabled.add(k)); store('known', SITE_ORDER); }   // 새로 추가된 사이트는 자동 켬
 let lastIds = null;      // 지난 방문 때 있던 글 id (NEW 판정용)
 let shown = PAGE;
 let view = store('view') || 'list';
