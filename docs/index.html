@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>핫딜 통합</title>
+<meta name="description" content="퀘이사존 · 루리웹 · 아카라이브 핫딜을 한 곳에서">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔥</text></svg>">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<style>
+:root{
+  --bg:#f3f4f7;--card:#ffffff;--fg:#151922;--muted:#6b7280;--line:#e6e8ee;--soft:#f6f7fa;
+  --accent:#ff5a1f;--accent-fg:#fff;--chip:#eef0f4;--shadow:0 1px 2px rgba(16,24,40,.06),0 8px 24px -12px rgba(16,24,40,.18);
+  --qz:#e11d48;--rw:#2563eb;--ac:#7c3aed;
+}
+@media(prefers-color-scheme:dark){:root:not([data-theme=light]){
+  --bg:#0d0f14;--card:#161a22;--fg:#e8eaf0;--muted:#8b93a3;--line:#242a36;--soft:#1c212b;--chip:#222836;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px -14px rgba(0,0,0,.7);
+}}
+:root[data-theme=dark]{
+  --bg:#0d0f14;--card:#161a22;--fg:#e8eaf0;--muted:#8b93a3;--line:#242a36;--soft:#1c212b;--chip:#222836;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px -14px rgba(0,0,0,.7);
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:"Pretendard Variable",Pretendard,-apple-system,BlinkMacSystemFont,"Malgun Gothic","Apple SD Gothic Neo",system-ui,sans-serif;font-size:15px;line-height:1.45}
+button,input,select{font:inherit;color:inherit}
+
+/* ---------- header ---------- */
+header{position:sticky;top:0;z-index:10;background:color-mix(in srgb,var(--card) 88%,transparent);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+.wrap{max-width:1280px;margin:0 auto;padding:0 16px}
+.bar{display:flex;align-items:center;gap:10px;height:56px}
+.brand{display:flex;align-items:center;gap:8px;font-weight:800;font-size:18px;letter-spacing:-.02em;white-space:nowrap}
+.brand .flame{font-size:20px}
+.updated{font-size:12px;color:var(--muted);white-space:nowrap}
+.spacer{flex:1}
+.ibtn{width:36px;height:36px;border-radius:10px;border:1px solid var(--line);background:var(--card);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;color:var(--muted)}
+.ibtn:hover{color:var(--fg);border-color:var(--muted)}
+.ibtn svg{width:18px;height:18px}
+.ibtn.spin svg{animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.tools{display:flex;align-items:center;gap:8px;padding:0 0 10px;flex-wrap:wrap}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;border:1px solid var(--line);background:var(--card);cursor:pointer;font-size:13px;font-weight:600;color:var(--muted);transition:.15s}
+.chip .dot{width:8px;height:8px;border-radius:50%;background:var(--c)}
+.chip .n{font-weight:500;opacity:.7;font-variant-numeric:tabular-nums}
+.chip.on{color:var(--fg);border-color:var(--c);background:color-mix(in srgb,var(--c) 10%,var(--card))}
+.search{flex:1;min-width:180px;position:relative}
+.search input{width:100%;height:36px;border-radius:10px;border:1px solid var(--line);background:var(--card);padding:0 12px 0 34px;outline:none}
+.search input:focus{border-color:var(--muted)}
+.search svg{position:absolute;left:11px;top:10px;width:16px;height:16px;color:var(--muted);pointer-events:none}
+select{height:36px;border-radius:10px;border:1px solid var(--line);background:var(--card);padding:0 10px;cursor:pointer}
+.sw{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);cursor:pointer;user-select:none;white-space:nowrap}
+.sw input{accent-color:var(--accent)}
+.status{font-size:12px;color:var(--muted);display:flex;gap:12px;flex-wrap:wrap;padding:10px 0 0}
+.status .warn{color:#d97706}.status .err{color:#dc2626}
+
+/* ---------- grid ---------- */
+main{padding:16px 0 60px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}
+.card{position:relative;display:flex;flex-direction:column;background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden;text-decoration:none;color:inherit;box-shadow:var(--shadow);transition:transform .15s,border-color .15s}
+.card:hover{transform:translateY(-2px);border-color:var(--muted)}
+.card.seen{opacity:.55}
+.card.ended .thumb::after{content:"종료";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.55);color:#fff;font-weight:800;font-size:20px;letter-spacing:.1em}
+.card.ended .title{text-decoration:line-through;color:var(--muted)}
+.thumb{position:relative;aspect-ratio:4/3;background:var(--soft);overflow:hidden}
+.thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.thumb .ph{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:#fff;font-weight:700;font-size:13px;background:linear-gradient(135deg,color-mix(in srgb,var(--c) 85%,#000),color-mix(in srgb,var(--c) 60%,#fff))}
+.thumb .ph .big{font-size:30px}
+.src{position:absolute;left:10px;top:10px;padding:3px 9px;border-radius:8px;background:var(--c);color:#fff;font-size:11px;font-weight:800;letter-spacing:.02em;box-shadow:0 2px 8px rgba(0,0,0,.25)}
+.new{position:absolute;right:10px;top:10px;padding:3px 8px;border-radius:8px;background:var(--accent);color:var(--accent-fg);font-size:11px;font-weight:800}
+.hot{position:absolute;right:10px;bottom:10px;font-size:18px;filter:drop-shadow(0 1px 2px rgba(0,0,0,.4))}
+.body{display:flex;flex-direction:column;gap:8px;padding:12px 14px 14px;flex:1}
+.title{font-weight:700;font-size:15px;line-height:1.35;letter-spacing:-.01em;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:2.7em;word-break:keep-all;overflow-wrap:anywhere}
+.price{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.price b{font-size:19px;font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.price b small{font-size:13px;font-weight:600;margin-left:1px}
+.price .ship{font-size:12px;color:var(--muted)}
+.price .none{font-size:13px;color:var(--muted)}
+.tags{display:flex;gap:6px;flex-wrap:wrap}
+.tag{font-size:11.5px;padding:3px 8px;border-radius:6px;background:var(--chip);color:var(--muted);font-weight:600;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tag.shop{color:var(--fg)}
+.meta{margin-top:auto;display:flex;align-items:center;gap:10px;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.meta span{white-space:nowrap}.meta .t{margin-left:auto}
+.meta svg{width:13px;height:13px;vertical-align:-2px;margin-right:2px}
+.empty{grid-column:1/-1;text-align:center;color:var(--muted);padding:80px 0}
+.loading{grid-column:1/-1;display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}
+.sk{height:300px;border-radius:16px;background:linear-gradient(90deg,var(--soft),var(--card),var(--soft));background-size:200% 100%;animation:sh 1.2s infinite}
+@keyframes sh{to{background-position:-200% 0}}
+.more{grid-column:1/-1;display:flex;justify-content:center;padding:10px 0}
+.more button{padding:10px 22px;border-radius:999px;border:1px solid var(--line);background:var(--card);cursor:pointer;font-weight:600}
+@media(max-width:560px){
+  .grid{grid-template-columns:1fr 1fr;gap:10px}
+  .card{border-radius:12px}.body{padding:10px 11px 12px;gap:6px}
+  .title{font-size:13.5px}.price b{font-size:16px}.tags{display:none}
+  .meta{font-size:11px;gap:7px}.meta [title=조회]{display:none}
+  .bar{height:50px}.updated{display:none}
+}
+@media(max-width:380px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <div class="bar">
+      <div class="brand"><span class="flame">🔥</span>핫딜 통합</div>
+      <span class="updated" id="updated"></span>
+      <span class="spacer"></span>
+      <button class="ibtn" id="theme" title="테마 전환"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg></button>
+      <button class="ibtn" id="markAll" title="모두 읽음 처리"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12l5 5L12 12"/><path d="M9 12l5 5L22 7"/></svg></button>
+      <button class="ibtn" id="refresh" title="새로고침"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 3v6h-6"/></svg></button>
+    </div>
+    <div class="tools">
+      <div class="chips" id="chips"></div>
+      <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input type="search" id="q" placeholder="검색 — 제목, 쇼핑몰, 카테고리"></div>
+      <select id="sort"><option value="time">최신순</option><option value="likes">추천순</option><option value="comments">댓글순</option><option value="views">조회순</option></select>
+      <label class="sw"><input type="checkbox" id="hideEnded" checked>종료 숨김</label>
+      <label class="sw"><input type="checkbox" id="hideSeen">본 글 숨김</label>
+    </div>
+    <div class="status" id="status" hidden></div>
+  </div>
+</header>
+<main class="wrap"><div class="grid" id="grid"></div></main>
+
+<script>
+const $ = s => document.querySelector(s);
+const store = (k, v) => { try { if (v !== undefined) localStorage.setItem(k, JSON.stringify(v)); return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } };
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const SITE_ORDER = ['quasarzone', 'ruliweb', 'arca'];
+const PAGE = 48;
+
+let data = { items: [], status: {}, generated: 0 };
+let seen = new Set(store('seen') || []);
+let enabled = new Set(store('enabled') || SITE_ORDER);
+let lastIds = null;      // 지난 방문 때 있던 글 id (NEW 판정용)
+let shown = PAGE;
+
+/* 테마 */
+const applyTheme = t => { t ? document.documentElement.dataset.theme = t : delete document.documentElement.dataset.theme; };
+applyTheme(store('theme'));
+$('#theme').onclick = () => { const cur = document.documentElement.dataset.theme || (matchMedia('(prefers-color-scheme:dark)').matches ? 'dark' : 'light'); const next = cur === 'dark' ? 'light' : 'dark'; store('theme', next); applyTheme(next); };
+
+/* 스켈레톤 */
+$('#grid').innerHTML = '<div class="loading">' + '<div class="sk"></div>'.repeat(8) + '</div>';
+
+function ago(ts) {
+  if (!ts) return '';
+  const m = Math.round((Date.now() / 1000 - ts) / 60);
+  if (m < 1) return '방금'; if (m < 60) return m + '분 전';
+  const h = Math.floor(m / 60); if (h < 24) return h + '시간 전';
+  const d = Math.floor(h / 24); return d < 30 ? d + '일 전' : new Date(ts * 1000).toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' });
+}
+function num(v) { const n = parseInt(String(v).replace(/[^\d]/g, ''), 10); if (!isNaN(n) && /천|만/.test(String(v))) return String(v); return isNaN(n) ? (v || '0') : (n >= 10000 ? (n / 10000).toFixed(1).replace(/\.0$/, '') + '만' : n >= 1000 ? (n / 1000).toFixed(1).replace(/\.0$/, '') + '천' : n); }
+function priceNum(p) { const n = parseInt(String(p).replace(/[^\d]/g, ''), 10); return isNaN(n) ? 0 : n; }
+
+function renderChips() {
+  $('#chips').innerHTML = SITE_ORDER.filter(k => data.status[k]).map(k => { const s = data.status[k];
+    return `<button class="chip ${enabled.has(k) ? 'on' : ''}" data-k="${k}" style="--c:${s.color}"><span class="dot"></span>${esc(s.name)}<span class="n">${s.count}</span></button>`; }).join('');
+  document.querySelectorAll('.chip').forEach(b => b.onclick = () => { const k = b.dataset.k; enabled.has(k) ? enabled.delete(k) : enabled.add(k); store('enabled', [...enabled]); shown = PAGE; render(); });
+}
+
+function card(it) {
+  const s = data.status[it.site] || {}; const isNew = lastIds && !lastIds.has(it.id);
+  const thumb = it.thumb
+    ? `<img loading="lazy" src="${esc(it.thumb)}" alt="" referrerpolicy="no-referrer" onerror="this.outerHTML='<div class=ph><span class=big>🛍️</span>${esc(s.name)}</div>'">`
+    : `<div class="ph"><span class="big">${it.category ? '🏷️' : '🛍️'}</span>${esc(it.category || s.name)}</div>`;
+  const price = it.price ? `<b>${esc(it.price)}<small>원</small></b>${it.shipping ? `<span class="ship">배송 ${esc(it.shipping)}</span>` : ''}`
+    : `<span class="none">${it.category ? esc(it.category) : '가격은 본문 참고'}</span>`;
+  return `<a class="card ${seen.has(it.id) ? 'seen' : ''} ${it.ended ? 'ended' : ''}" href="${esc(it.url)}" target="_blank" rel="noopener" data-id="${it.id}" style="--c:${s.color}">
+    <div class="thumb">${thumb}<span class="src">${esc(s.name)}</span>${isNew ? '<span class="new">NEW</span>' : ''}${it.hot ? '<span class="hot">🔥</span>' : ''}</div>
+    <div class="body">
+      <div class="title">${esc(it.title)}</div>
+      <div class="price">${price}</div>
+      <div class="tags">${it.shop ? `<span class="tag shop">${esc(it.shop)}</span>` : ''}${it.category && it.price ? `<span class="tag">${esc(it.category)}</span>` : ''}</div>
+      <div class="meta">
+        <span title="댓글"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1.1-4.4A8 8 0 1 1 21 12Z"/></svg>${it.comments}</span>
+        <span title="추천"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 11v9H4v-9h3Zm3 9h7.5a2 2 0 0 0 2-1.6l1-5A2 2 0 0 0 18.5 11H14V6.5A2.5 2.5 0 0 0 11.5 4L10 11v9Z"/></svg>${it.likes}</span>
+        ${it.views ? `<span title="조회"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>${esc(num(it.views))}</span>` : ''}
+        <span class="t">${ago(it.ts) || esc(it.time_text)}</span>
+      </div>
+    </div></a>`;
+}
+
+function render() {
+  renderChips();
+  const q = $('#q').value.trim().toLowerCase(), hideEnded = $('#hideEnded').checked, hideSeen = $('#hideSeen').checked, sort = $('#sort').value;
+  let rows = data.items.filter(it => enabled.has(it.site) && (!hideEnded || !it.ended) && (!hideSeen || !seen.has(it.id))
+    && (!q || (it.title + ' ' + it.shop + ' ' + it.category).toLowerCase().includes(q)));
+  if (sort === 'likes') rows.sort((a, b) => b.likes - a.likes || b.ts - a.ts);
+  else if (sort === 'comments') rows.sort((a, b) => b.comments - a.comments || b.ts - a.ts);
+  else if (sort === 'views') rows.sort((a, b) => priceNum(String(b.views).replace('천', '000').replace('만', '0000')) - priceNum(String(a.views).replace('천', '000').replace('만', '0000')) || b.ts - a.ts);
+  else rows.sort((a, b) => b.ts - a.ts);
+  const html = rows.slice(0, shown).map(card).join('');
+  $('#grid').innerHTML = (html || '<div class="empty">표시할 글이 없습니다</div>') + (rows.length > shown ? `<div class="more"><button id="more">더 보기 (${rows.length - shown}건 남음)</button></div>` : '');
+  document.querySelectorAll('.card').forEach(a => a.addEventListener('click', () => { seen.add(a.dataset.id); store('seen', [...seen].slice(-4000)); a.classList.add('seen'); }));
+  const mb = $('#more'); if (mb) mb.onclick = () => { shown += PAGE; render(); };
+
+  const st = SITE_ORDER.filter(k => data.status[k]).map(k => { const s = data.status[k];
+    if (s.error && !s.count) return `<span class="err">⚠ ${esc(s.name)}: 수집 실패</span>`;
+    if (s.error || s.stale) return `<span class="warn">⚠ ${esc(s.name)}: 최신 수집 실패, 이전 결과 표시 중</span>`;
+    return ''; }).filter(Boolean);
+  $('#status').innerHTML = st.join(''); $('#status').hidden = !st.length;
+  $('#updated').textContent = data.generated ? '갱신 ' + new Date(data.generated * 1000).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+}
+
+async function load(force) {
+  const btn = $('#refresh'); btn.classList.add('spin');
+  try {
+    const src = 'deals.json'; const url = src.startsWith('/api') ? src + (force ? '?force=1' : '') : src + '?t=' + Date.now();
+    const r = await fetch(url, { cache: 'no-store' }); if (!r.ok) throw new Error('HTTP ' + r.status);
+    data = await r.json();
+    if (lastIds === null) { const prev = store('lastIds'); lastIds = prev && prev.length ? new Set(prev) : null; }
+    store('lastIds', data.items.map(i => i.id));
+    render();
+  } catch (e) { $('#grid').innerHTML = `<div class="empty">불러오지 못했습니다<br><small>${esc(e.message)}</small></div>`; }
+  finally { btn.classList.remove('spin'); }
+}
+$('#refresh').onclick = () => load(true);
+['#q', '#sort', '#hideEnded', '#hideSeen'].forEach(s => $(s).addEventListener('input', () => { shown = PAGE; render(); }));
+$('#markAll').onclick = () => { data.items.forEach(i => seen.add(i.id)); store('seen', [...seen].slice(-4000)); render(); };
+load(false);
+setInterval(() => load(true), 5 * 60 * 1000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden && data.generated && Date.now() / 1000 - data.generated > 300) load(true); });
+</script>
+</body>
+</html>
