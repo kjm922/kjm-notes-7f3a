@@ -447,7 +447,65 @@ class Handler(BaseHTTPRequestHandler):
             self.send_error(404)
 
 
+# ----------------------------------------------------------------------------
+# GitHub Pages로 결과 올리기 (github_token.txt 가 있을 때만 동작)
+# ----------------------------------------------------------------------------
+GITHUB_REPO = "kjm922/kjm-notes-7f3a"
+GITHUB_PATH = "docs/deals.json"
+PUSH_INTERVAL = 15 * 60
+
+
+def _token():
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "github_token.txt")
+    try:
+        with open(path, encoding="utf-8") as f:
+            return f.read().strip()
+    except OSError:
+        return ""
+
+
+def github_push_once(token):
+    import base64
+    import scrape
+    api = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{GITHUB_PATH}"
+    hdr = {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json",
+           "X-GitHub-Api-Version": "2022-11-28"}
+    prev, sha = {"items": [], "status": {}}, None
+    r = requests.get(api, headers=hdr, timeout=20)
+    if r.status_code == 200:
+        sha = r.json()["sha"]
+        try:
+            prev = json.loads(base64.b64decode(r.json()["content"]).decode("utf-8"))
+        except (ValueError, KeyError):
+            pass
+    elif r.status_code not in (404,):
+        raise RuntimeError(f"GitHub 읽기 실패 {r.status_code}: {r.text[:120]}")
+    data = scrape.build(prev, collect(force=True))
+    body = json.dumps(data, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+    payload = {"message": f"update deals {time.strftime('%Y-%m-%d %H:%M')}",
+               "content": base64.b64encode(body).decode("ascii")}
+    if sha:
+        payload["sha"] = sha
+    r = requests.put(api, headers=hdr, json=payload, timeout=30)
+    if r.status_code not in (200, 201):
+        raise RuntimeError(f"GitHub 쓰기 실패 {r.status_code}: {r.text[:120]}")
+    return {k: v["count"] for k, v in data["status"].items()}
+
+
+def github_push_loop(token):
+    while True:
+        try:
+            counts = github_push_once(token)
+            print(f"[{time.strftime('%H:%M')}] GitHub 업로드 완료 {counts}")
+        except Exception as e:  # noqa: BLE001
+            print(f"[{time.strftime('%H:%M')}] GitHub 업로드 실패: {e}")
+        time.sleep(PUSH_INTERVAL)
+
+
 def main():
+    if "--push" in sys.argv:                       # 한 번만 올리고 종료
+        print(github_push_once(_token() or sys.exit("github_token.txt 없음")))
+        return
     if "--test" in sys.argv:                       # 파싱만 확인
         d = collect(True)
         for k, s in d["status"].items():
@@ -458,6 +516,12 @@ def main():
     srv = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
     url = f"http://127.0.0.1:{PORT}/"
     print(f"핫딜 통합 뷰어 실행 중: {url}   (종료: Ctrl+C)")
+    token = _token()
+    if token:
+        print(f"GitHub 업로드 켜짐: {PUSH_INTERVAL // 60}분마다 https://kjm922.github.io/{GITHUB_REPO.split('/')[1]}/ 갱신")
+        threading.Thread(target=github_push_loop, args=(token,), daemon=True).start()
+    else:
+        print("github_token.txt 가 없어 GitHub 업로드는 꺼져 있습니다 (PC에서만 보기)")
     threading.Thread(target=lambda: (time.sleep(0.6), webbrowser.open(url)), daemon=True).start()
     try:
         srv.serve_forever()

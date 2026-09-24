@@ -13,18 +13,12 @@ OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "docs", "deals.js
 MAX_PER_SITE = 60
 
 
-def main():
-    prev = {"items": [], "status": {}}
-    try:
-        with open(OUT, encoding="utf-8") as f:
-            prev = json.load(f)
-    except (OSError, ValueError):
-        pass
+def build(prev, data):
+    """새 수집 결과(data)와 이전 결과(prev)를 합친다. 실패한 사이트는 이전 것을 그대로 유지."""
     prev_items = {}
     for it in prev.get("items", []):
         prev_items.setdefault(it["site"], []).append(it)
 
-    data = hotdeal.collect(force=True)
     items = []
     for key, st in data["status"].items():
         if st["error"]:
@@ -40,11 +34,22 @@ def main():
     items.sort(key=lambda x: x["ts"], reverse=True)
     data["items"] = items
     data["generated"] = time.time()
+    return data
+
+
+def main():
+    prev = {"items": [], "status": {}}
+    try:
+        with open(OUT, encoding="utf-8") as f:
+            prev = json.load(f)
+    except (OSError, ValueError):
+        pass
+    data = build(prev, hotdeal.collect(force=True))
 
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     with open(OUT, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, separators=(",", ":"))
-    print(f"저장: {OUT} ({len(items)}건)")
+    print(f"저장: {OUT} ({len(data['items'])}건)")
 
 
 if __name__ == "__main__":

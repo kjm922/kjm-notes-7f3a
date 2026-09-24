@@ -224,7 +224,7 @@ function render() {
 
   const st = SITE_ORDER.filter(k => data.status[k]).map(k => { const s = data.status[k];
     if (s.error && !s.count) return `<span class="err">⚠ ${esc(s.name)}: 수집 실패</span>`;
-    if (s.error || s.stale) return `<span class="warn">⚠ ${esc(s.name)}: 최신 수집 실패, 이전 결과 표시 중</span>`;
+    if ((s.error || s.stale) && Date.now() / 1000 - (s.at || 0) > 3600) return `<span class="warn">⚠ ${esc(s.name)}: ${ago(s.at) || '오래 전'} 수집분 표시 중</span>`;
     return ''; }).filter(Boolean);
   $('#status').innerHTML = st.join(''); $('#status').hidden = !st.length;
   $('#updated').textContent = data.generated ? '갱신 ' + new Date(data.generated * 1000).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
