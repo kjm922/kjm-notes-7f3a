@@ -634,12 +634,17 @@ def github_push_once(token):
 
 def github_push_loop(token):
     while True:
-        try:
-            counts = github_push_once(token)
-            print(f"[{time.strftime('%H:%M')}] GitHub 업로드 완료 {counts}")
-        except Exception as e:  # noqa: BLE001
-            print(f"[{time.strftime('%H:%M')}] GitHub 업로드 실패: {e}")
-        time.sleep(PUSH_INTERVAL)
+        wait = PUSH_INTERVAL
+        for attempt in range(3):                    # 일시적 네트워크 오류면 1분 뒤 재시도 (최대 3회)
+            try:
+                counts = github_push_once(token)
+                print(f"[{time.strftime('%H:%M')}] GitHub 업로드 완료 {counts}")
+                break
+            except Exception as e:  # noqa: BLE001
+                print(f"[{time.strftime('%H:%M')}] GitHub 업로드 실패: {e}")
+                if attempt < 2:
+                    time.sleep(60)
+        time.sleep(wait)
 
 
 def main():
