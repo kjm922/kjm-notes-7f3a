@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-핫딜 통합 뷰어 — 퀘이사존 · 루리웹 · 아카라이브 핫딜 게시판을 한 페이지로.
+핫딜 통합 뷰어 — 퀘이사존 · 루리웹 · 아카라이브 · 뽐뿌 핫딜 게시판을 한 페이지로.
 
 실행:  python hotdeal.py      (브라우저가 자동으로 열립니다: http://127.0.0.1:8765)
 필요:  pip install requests beautifulsoup4   (아나콘다에는 기본 포함)
@@ -221,10 +221,90 @@ def parse_arca(html, now):
     return out
 
 
+
+def parse_ppomppu(html, now):
+    """뽐뿌게시판 모바일 목록 (m.ppomppu.co.kr/new/bbs_list.php?id=ppomppu)."""
+    soup = BeautifulSoup(html, "html.parser")
+    out = []
+    for li in soup.select("li.bbs_list_thumbnail"):
+        a = li.select_one("a[href*='bbs_view.php']")
+        if not a or "id=ppomppu" not in a.get("href", ""):
+            continue
+        m = re.search(r"no=(\d+)", a["href"])
+        if not m:
+            continue
+        rid = m.group(1)
+        cont = li.select_one(".title .cont")
+        if not cont:
+            continue
+        pre = cont.select_one(".subject_preface")
+        shop = clean(pre.get_text()).strip("[]") if pre else ""
+        hot = bool(cont.select_one("img.newhot"))
+        if pre:
+            pre.decompose()
+        for img in cont.select("img"):
+            img.decompose()
+        title = clean(cont.get_text())
+        price, shipping = "", ""
+        pm = re.search(r"\(([\d,]+)\s*원?\s*/\s*([^)]*)\)\s*$", title)
+        if pm:
+            price, shipping = pm.group(1), clean(pm.group(2))
+            title = clean(title[:pm.start()])
+        rp = li.select_one(".title .rp")
+        names = clean(li.select_one(".names").get_text()) if li.select_one(".names") else ""
+        cm = re.match(r"\[([^\]]+)\]", names)
+        category = cm.group(1) if cm else ""
+        t = li.select_one(".exp time")
+        time_text = clean(t.get_text()) if t else ""
+        dt = None
+        try:
+            if re.fullmatch(r"\d{1,2}:\d{2}:\d{2}", time_text):
+                h, mi, sec = map(int, time_text.split(":"))
+                dt = now.replace(hour=h, minute=mi, second=sec, microsecond=0)
+                if dt > now + timedelta(minutes=5):
+                    dt -= timedelta(days=1)
+            elif re.fullmatch(r"\d{2}/\d{2}/\d{2}", time_text):
+                dt = datetime.strptime(time_text, "%y/%m/%d").replace(tzinfo=KST)
+            elif re.fullmatch(r"\d{2}/\d{2}", time_text):
+                dt = datetime.strptime(time_text, "%m/%d").replace(year=now.year, tzinfo=KST)
+                if dt > now + timedelta(days=1):
+                    dt = dt.replace(year=now.year - 1)
+        except ValueError:
+            dt = None
+        thumb = li.select_one(".thmb_N img")
+        thumb_src = thumb.get("src", "") if thumb else ""
+        if thumb_src.startswith("//"):
+            thumb_src = "https:" + thumb_src
+        if "no_img" in thumb_src:
+            thumb_src = ""
+        view = li.select_one(".exp .view")
+        recs = li.select_one(".exp .recs")
+        out.append({
+            "id": "pp-" + rid,
+            "site": "ppomppu",
+            "title": title,
+            "url": "https://www.ppomppu.co.kr/zboard/view.php?id=ppomppu&no=" + rid,
+            "category": category,
+            "shop": shop,
+            "price": price,
+            "shipping": shipping,
+            "thumb": thumb_src,
+            "comments": to_int(rp.get_text()) if rp else 0,
+            "likes": to_int(recs.get_text()) if recs else 0,
+            "views": clean(view.get_text()) if view else "",
+            "hot": hot,
+            "ended": bool(ENDED_RE.search(title)),
+            "ts": dt.timestamp() if dt else 0,
+            "time_text": time_text,
+        })
+    return out
+
+
 SITES = {
     "quasarzone": {"name": "퀘이사존", "url": "https://quasarzone.com/bbs/qb_saleinfo", "parse": parse_quasarzone, "color": "#e11d48"},
     "ruliweb":    {"name": "루리웹",   "url": "https://bbs.ruliweb.com/market/board/1020", "parse": parse_ruliweb, "color": "#2563eb"},
     "arca":       {"name": "아카라이브", "url": "https://arca.live/b/hotdeal", "parse": parse_arca, "color": "#7c3aed"},
+    "ppomppu":    {"name": "뽐뿌",     "url": "https://m.ppomppu.co.kr/new/bbs_list.php?id=ppomppu", "parse": parse_ppomppu, "color": "#059669"},
 }
 
 _cache = {}          # site -> {"at": epoch, "items": [...], "error": str|None}
@@ -271,6 +351,8 @@ def http_get(url):
     tried = []
     try:
         r = requests.get(url, headers=HEADERS, timeout=TIMEOUT)
+        if not r.encoding or r.encoding.lower() == "iso-8859-1":   # 뽐뿌(EUC-KR)처럼 헤더에 문자셋이 없을 때
+            r.encoding = r.apparent_encoding
         if r.status_code == 200 and not _looks_blocked(r.text):
             return r.text
         tried.append(f"requests={r.status_code}")
