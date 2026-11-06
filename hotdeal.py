@@ -5,6 +5,8 @@
 실행:  python hotdeal.py      (브라우저가 자동으로 열립니다: http://127.0.0.1:8765)
 필요:  pip install requests beautifulsoup4   (아나콘다에는 기본 포함)
 """
+# SERVICE_STOPPED_BY_OWNER
+raise SystemExit('Service stopped by owner request (2026-11-06).')
 import json
 import os
 import re
