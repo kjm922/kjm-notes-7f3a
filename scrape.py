@@ -1,56 +1,38 @@
-# -*- coding: utf-8 -*-
-"""
-GitHub Actions용 수집 스크립트: 3개 사이트를 긁어 docs/deals.json 으로 저장.
-어떤 사이트가 실패하면 그 사이트는 이전 결과를 그대로 유지(stale 표시)해서 페이지가 비지 않게 한다.
-"""
-import json
-import os
-import time
-
+"""Bounded public snapshot. No previous content retained on failure or expiry."""
+import json,time
+from pathlib import Path
 import hotdeal
 
-OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "docs", "deals.json")
-MAX_PER_SITE = 60
+OUT=Path(__file__).parent/'docs/deals.json'
 
-
-def build(prev, data):
-    """새 수집 결과(data)와 이전 결과(prev)를 합친다. 실패한 사이트는 이전 것을 그대로 유지."""
-    prev_items = {}
-    for it in prev.get("items", []):
-        prev_items.setdefault(it["site"], []).append(it)
-
-    items = []
-    for key, st in data["status"].items():
-        if st["error"]:
-            kept = prev_items.get(key, [])
-            old = prev.get("status", {}).get(key, {})
-            st.update({"count": len(kept), "stale": True, "at": old.get("at", 0)})
-            items.extend(kept)
-            print(f"[{st['name']}] 실패 → 이전 {len(kept)}건 유지. {st['error']}")
-        else:
-            st["stale"] = False
-            items.extend([it for it in data["items"] if it["site"] == key][:MAX_PER_SITE])
-            print(f"[{st['name']}] {st['count']}건")
-    items.sort(key=lambda x: x["ts"], reverse=True)
-    data["items"] = items
-    data["generated"] = time.time()
-    return data
-
+def build(prev, now=None):
+    now=time.time() if now is None else now
+    result={'items':[],'status':{},'generated':now}
+    for key,(name,url,parser) in hotdeal.SITES.items():
+        old=prev.get('status',{}).get(key,{})
+        last=float(old.get('checked_at',0))
+        if old.get('blocked'):
+            result['status'][key]={**old,'name':name,'url':url}
+            continue
+        if now-last < hotdeal.INTERVAL:
+            result['status'][key]={**old,'name':name,'url':url}
+            if now-last < hotdeal.TTL:
+                result['items'].extend([x for x in prev.get('items',[]) if x.get('site')==key][:hotdeal.LIMIT])
+            continue
+        response=hotdeal.collect_site(key)
+        blocked=hotdeal.state[key]['blocked']
+        result['status'][key]={'name':name,'url':url,'checked_at':now,'blocked':blocked,
+                               'error':response['error'],'count':len(response['items'])}
+        for item in response['items']:
+            result['items'].append({**item,'site':key,'expires_at':now+hotdeal.TTL})
+    return result
 
 def main():
-    prev = {"items": [], "status": {}}
-    try:
-        with open(OUT, encoding="utf-8") as f:
-            prev = json.load(f)
-    except (OSError, ValueError):
-        pass
-    data = build(prev, hotdeal.collect(force=True))
+    try: prev=json.loads(OUT.read_text(encoding='utf-8'))
+    except (OSError,ValueError): prev={}
+    data=build(prev)
+    OUT.parent.mkdir(exist_ok=True)
+    OUT.write_text(json.dumps(data,ensure_ascii=False,separators=(',',':')),encoding='utf-8')
+    for st in data['status'].values(): print(st['name'],st.get('count',0),st.get('error',''))
 
-    os.makedirs(os.path.dirname(OUT), exist_ok=True)
-    with open(OUT, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, separators=(",", ":"))
-    print(f"저장: {OUT} ({len(data['items'])}건)")
-
-
-if __name__ == "__main__":
-    main()
+if __name__=='__main__': main()
